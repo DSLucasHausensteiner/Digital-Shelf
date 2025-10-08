@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+src/digital_shelf/__init__.py
+src/digital_shelf.egg-info/PKG-INFO
+src/digital_shelf.egg-info/SOURCES.txt
+src/digital_shelf.egg-info/dependency_links.txt
+src/digital_shelf.egg-info/requires.txt
+src/digital_shelf.egg-info/top_level.txt
+src/digital_shelf/adapters/__init__.py
+src/digital_shelf/adapters/orm.py
+src/digital_shelf/app/app.py
+src/digital_shelf/domain/__init__.py
+src/digital_shelf/domain/model.py

@@ -1,0 +1,24 @@
+[project]
+name = "digital-shelf"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.16.5",
+    "psycopg2>=2.9.10",
+    "sqlalchemy>=2.0.43",
+    "streamlit>=1.50.0",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

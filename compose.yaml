@@ -1,0 +1,13 @@
+services:
+  db:
+    image: postgres:17.6
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - "5433:5432"
+    volumes:
+      - digital_self:/var/lib/prosgresql/data
+
+volumes:
+  digital_self:
