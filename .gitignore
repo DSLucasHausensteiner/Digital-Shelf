@@ -1,2 +1,4 @@
 /data/sample_images/**
 !/data/sample_images/.gitkeep
+/notebooks/output/**
+!/notebooks/output/.gitkeep

@@ -4,7 +4,10 @@ Version: 0.1.0
 Summary: Add your description here
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
-Requires-Dist: alembic>=1.16.5
+Requires-Dist: opencv-python>=4.12.0.88
+Requires-Dist: paddleocr>=3.3.0
 Requires-Dist: psycopg2>=2.9.10
+Requires-Dist: requests>=2.32.5
 Requires-Dist: sqlalchemy>=2.0.43
 Requires-Dist: streamlit>=1.50.0
+Requires-Dist: paddlepaddle-gpu==3.2.0
