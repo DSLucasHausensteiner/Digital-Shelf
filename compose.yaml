@@ -7,7 +7,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - digital_self:/var/lib/prosgresql/data
+      - digital_shelf:/var/lib/postgresql/data
 
 volumes:
-  digital_self:
+  digital_shelf:
