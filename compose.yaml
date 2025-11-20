@@ -8,6 +8,47 @@ services:
       - "5433:5432"
     volumes:
       - digital_shelf:/var/lib/postgresql/data
+    networks:
+      - app_network
+
+  # ocr:
+  #   build:
+  #     context: ./ocr
+  #     dockerfile: Dockerfile
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./src/digital_shelf/Dockerfile
+    ports:
+      - "8501:8501"
+    depends_on:
+      - db
+      - ollama
+    volumes:
+      - ./src:/app/src
+      - ./src/digital_shelf/.streamlit:/app/.streamlit
+    networks:
+      - app_network
+  
+  ollama:
+    image: ollama/ollama:0.13.0
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    networks:
+      - app_network
 
 volumes:
   digital_shelf:
+  ollama_data:
+
+networks:
+  app_network:
