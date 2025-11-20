@@ -1,0 +1,6 @@
+[server]
+runOnSave = true
+headless = true
+maxUploadSize = 2000
+fileWatcherType = "poll"
+fileWatcherWaitTime = 0.1
