@@ -8,36 +8,28 @@ from datetime import datetime
 
 from openai import OpenAI
 
-from digital_shelf.adapters.orm import metadata, start_mappers, products
-from digital_shelf.domain.model import Product
+from digital_shelf.adapters.orm import Base
+from digital_shelf.domain.model import Product, Unit
+from digital_shelf.adapters.repository import ProductRepository
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from sqlalchemy.dialects.postgresql import insert
 
 # Setup ORM
 @st.cache_resource()
-def get_engine_and_mappers():
-    engine = create_engine("postgresql://postgres:secret@127.0.0.1:5433")#db:5432")
-    metadata.create_all(engine)
+def get_engine():
+    engine = create_engine("postgresql://postgres:secret@127.0.0.1:5433")#db:5432")#
+    Base.metadata.create_all(engine)
 
     return engine
 
-engine = get_engine_and_mappers()
+engine = get_engine()
 
 
 client = OpenAI(
-    base_url="http://localhost:11434/v1",#ollama:11434/v1",
+    base_url="http://localhost:11434/v1",#ollama:11434/v1",#
     api_key="dummy-key",
 )
-
-# Functions to add products
-def add_or_update_product(_session: Session, product: Product):
-    query = insert(products).values(name=product.name, qty=product.qty, expiry_date=product.expiry_date)
-    query = query.on_conflict_do_update(
-        index_elements=["name", "expiry_date"],
-        set_={"qty": products.c.qty + product.qty},
-    )
-    _session.execute(query)
 
 def process_grocery_img(image: io.BytesIO):
 
@@ -190,23 +182,12 @@ if "last_image_hash" not in st.session_state:
 if "current_product" not in st.session_state:
     st.session_state.current_product = None
 
-if "current_product" in st.session_state:
-    if st.session_state.current_product != None:
-        p = st.session_state.current_product
-
-        name = p.name if p.name is not None else ""
-        qty = p.qty if p.qty is not None else 1
-        expiry = p.expiry_date.date() if p.expiry_date else None
-
-        # st.session_state.setdefault("form_name", name)
-        # st.session_state.setdefault("form_qty", qty)
-        # st.session_state.setdefault("form_expiry", expiry)
+st.session_state.setdefault("form_nutrition_facts")
 
 st.title("Digital Shelf 1")
 
 st.write("Welcome to the digital version of your shelf.")
 st.write(st.session_state.image_expander)
-st.json(st.session_state.current_product)
 
 with st.expander(label="Enter a new product", expanded=st.session_state.image_expander):
     # Image capture to get the images
@@ -244,29 +225,56 @@ with st.expander(label="Enter a new product", expanded=st.session_state.image_ex
             # Show raw JSON
             st.subheader("Structured extraction (Pydantic)")
             st.session_state.current_product = result
+            st.json(st.session_state.current_product)
+            st.session_state.form_name = result.name
+            st.session_state.form_expiry = result.expiry_date
+            st.session_state.form_qty = result.qty
+            st.session_state.form_size_amount = result.size.amount
+            st.session_state.form_size_unit = result.size.unit
+            st.session_state.form_nutrition_facts = result.nutrition_facts
+
 
     with st.form("New Grocery item"):
         name = st.text_input("Enter the name of the product", key="form_name")
         expiry_date = st.date_input("Enter the expiry date", key="form_expiry")
-        qnty = st.number_input("Enter the quantity of the product", key="form_qty")
+        qty = st.number_input("Enter the quantity of the product", key="form_qty", step=1)
+        size_amount = st.number_input("Enter an amount of the product", key="form_size_amount")
+        size_unit = st.selectbox("Enter the unit of the amount", options=["g", "kg", "ml", "l"], key="form_size_unit")
+
+        nutrition_facts = None
+        if st.session_state.form_nutrition_facts is not None:
+            nutrition_df = pd.DataFrame(st.session_state.form_nutrition_facts)
+            nutrition_facts = st.data_editor(nutrition_df)
+
+        p = Product(
+            name=name,
+            expiry_date=expiry_date,
+            qty=qty,
+            size=Unit(amount=size_amount, unit=size_unit),
+            nutrition_facts= nutrition_facts
+        )
+
         submitted = st.form_submit_button("Submit")
         if submitted:
             with Session(engine) as session:
                 # Create domain objects
-                prod1 = Product(name="Cereal", qty=10, expiry_date=datetime(2025,12,10))
-                # prod2 = Product(name="Milk", qty=25, expiry_date=datetime(2025,10,10))
-
-                add_or_update_product(session, prod1)
-                # add_or_update_product(session, prod2)
-
-
-        
-    #     session.commit()
+                repo = ProductRepository(session)
+                repo.add_or_update(p)
 
 if st.button(label="View my digital shelf"):
     with Session(engine) as session:
-        products_list = session.query(products).all()
-        df = pd.DataFrame(products_list, columns=["ID", "Name", "Quantity", "Expiry_Date", "Nutrition Facts"])
+        # Create domain objects
+        repo = ProductRepository(session)
+        products_list = repo.list_all()
+        product_dicts = [p.model_dump() for p in products_list]
+        df = pd.DataFrame(product_dicts)
+        df = df.rename(columns={
+            "name": "Name",
+            "qty": "Quantity",
+            "size": "Size",
+            "expiry_date": "Expiry Date",
+            "nutrition_facts": "Nutrition Facts",
+        })
         st.write(df)
 
 
