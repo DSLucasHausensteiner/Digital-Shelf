@@ -51,7 +51,7 @@ services:
       - WANDB_API_KEY=${WANDB_API_KEY}
       - WANDB_PROJECT=${WANDB_PROJECT}
       - WANDB_ENTITY=${WANDB_ENTITY}
-  
+
   ollama:
     image: ollama/ollama:0.13.0
     ports:

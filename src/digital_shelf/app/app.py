@@ -16,11 +16,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 # Setup ORM
+# @st.cache_resource()
+# def get_engine():
+#     engine = create_engine("postgresql://postgres:secret@127.0.0.1:5433")#db:5432")#
+#     Base.metadata.create_all(engine)
+#     return engine
+
+# Setup database engine
 @st.cache_resource()
 def get_engine():
-    engine = create_engine("postgresql://postgres:secret@127.0.0.1:5433")#db:5432")#
+    engine = create_engine("postgresql://postgres:secret@db:5432")
     Base.metadata.create_all(engine)
-
     return engine
 
 engine = get_engine()
