@@ -274,14 +274,14 @@ with st.expander(label="Enter a new product", expanded=st.session_state.image_ex
                 joined_texts = " ".join(texts)
                 processed_texts += joined_texts + " "
 
-                # Convert bytes to PIL Image for wandb logging
+                # convert bytes to PIL Image for wandb logging
                 pil_img = Image.open(io.BytesIO(img_bytes))
                 ocr_table.add_data(
                     wandb.Image(pil_img, caption="grocery image"),
                     joined_texts,
                 )
 
-            # Log OCR table with images and extracted text
+            # log OCR table with images and extracted text
             run.log({"ocr_examples": ocr_table})
 
             status.write("=" * 50)
@@ -297,7 +297,7 @@ with st.expander(label="Enter a new product", expanded=st.session_state.image_ex
             try:
                 result = extract_product_info_with_llm(processed_texts)
             except Exception as e:
-                # Error handling
+                # error handling
                 status.update(label="Extraction failed [ERROR]", state="error")
                 status.write("=" * 50)
                 status.write(f"[X] Error during LLM call: {e}")
@@ -307,7 +307,7 @@ with st.expander(label="Enter a new product", expanded=st.session_state.image_ex
                 run.log({"error": str(e)})
                 run.finish()
             else:
-                # Log LLM input and output to wandb
+                # log LLM input and output to wandb
                 run.log({
                     "llm_input_text": processed_texts,
                     "llm_output_json": result.model_dump(),
@@ -319,8 +319,8 @@ with st.expander(label="Enter a new product", expanded=st.session_state.image_ex
                 status.write("=" * 50)
                 status.update(label="Extraction complete [OK]", state="complete")
 
-                # Display structured extraction results
-                st.subheader("Structured extraction (Pydantic)")
+                # display structured extraction results
+                st.subheader("Structured extraction")
                 st.session_state.current_product = result
                 st.json(st.session_state.current_product)
                 st.session_state.form_name = result.name
