@@ -44,7 +44,9 @@ services:
       - "traefik.http.routers.digital-shelf.rule=Host(`digital-shelf.vincentvega.ddns.net`)"
       - "traefik.http.routers.digital-shelf.entrypoints=websecure"
       - "traefik.http.routers.digital-shelf.tls.certresolver=lets"
+      - "traefik.http.routers.digital-shelf.service=digital-shelf"
       - "traefik.http.services.digital-shelf.loadbalancer.server.port=8501"
+      - "traefik.docker.network=proxy"
   
   ollama:
     image: ollama/ollama:0.13.0
