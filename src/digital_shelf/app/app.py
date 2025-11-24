@@ -250,64 +250,88 @@ with st.expander(label="Enter a new product", expanded=st.session_state.image_ex
         render_image_container(i, img_bytes)
 
     if st.button(label="Extract the text from the entered Images"):
-        # Initialize wandb run for logging OCR and LLM data
-        run = wandb.init(
-            project=os.getenv("WANDB_PROJECT", "digital-shelf"),
-            entity=os.getenv("WANDB_ENTITY"),
-            reinit=True,
-        )
-
-        processed_texts = ""
-        # Create table to log images with their OCR text
-        ocr_table = wandb.Table(columns=["image", "ocr_text"])
-
-        # Process images and log OCR results
-        for img_bytes in st.session_state.images:
-            texts = process_grocery_img(img_bytes)
-            joined_texts = " ".join(texts)
-            processed_texts += joined_texts + " "
-
-            # Convert bytes to PIL Image for wandb logging
-            pil_img = Image.open(io.BytesIO(img_bytes))
-            ocr_table.add_data(
-                wandb.Image(pil_img, caption="grocery image"),
-                joined_texts,
+        # Status bar for the entire extraction process
+        with st.status("Starting extraction…", expanded=True) as status:
+            # Initialize wandb run for logging OCR and LLM data
+            run = wandb.init(
+                project=os.getenv("WANDB_PROJECT", "digital-shelf"),
+                entity=os.getenv("WANDB_ENTITY"),
+                reinit=True,
+                name="ocr+llm-inference",
+                tags=["ocr", "llm", "qwen2.5"],
             )
 
-        # Log OCR table with images and extracted text
-        run.log({"ocr_examples": ocr_table})
+            processed_texts = ""
+            # Create table to log images with their OCR text
+            ocr_table = wandb.Table(columns=["image", "ocr_text"])
 
-        st.write(f"Found texts are: \n\n {processed_texts}")
+            # Step 1: OCR processing
+            status.update(label="Step 1/2: Extracting text from images…", state="running")
+            status.write("Running OCR on uploaded images…")
 
-        # Extract structured product info using LLM
-        try:
-            result = extract_product_info_with_llm(processed_texts)
-        except Exception as e:
-            st.error(f"Failed to parse LLM output as valid JSON: {e}")
-            # Log error to wandb
-            run.log({"error": str(e)})
-            run.finish()
-        else:
-            # Log LLM input and output to wandb
-            run.log({
-                "llm_input_text": processed_texts,
-                "llm_output_json": result.model_dump(),
-                "llm_model_name": "qwen2.5:7b",
-            })
+            for img_bytes in st.session_state.images:
+                texts = process_grocery_img(img_bytes)
+                joined_texts = " ".join(texts)
+                processed_texts += joined_texts + " "
 
-            # Display structured extraction results
-            st.subheader("Structured extraction (Pydantic)")
-            st.session_state.current_product = result
-            st.json(st.session_state.current_product)
-            st.session_state.form_name = result.name
-            st.session_state.form_expiry = result.expiry_date
-            st.session_state.form_qty = result.qty
-            st.session_state.form_size_amount = result.size.amount
-            st.session_state.form_size_unit = result.size.unit
-            st.session_state.form_nutrition_facts = result.nutrition_facts
+                # Convert bytes to PIL Image for wandb logging
+                pil_img = Image.open(io.BytesIO(img_bytes))
+                ocr_table.add_data(
+                    wandb.Image(pil_img, caption="grocery image"),
+                    joined_texts,
+                )
 
-            run.finish()
-            st.rerun()
+            # Log OCR table with images and extracted text
+            run.log({"ocr_examples": ocr_table})
+
+            status.write("=" * 50)
+            status.write("[OK] OCR finished.")
+            status.write(f"OCR result: {processed_texts}")
+            status.write("=" * 50)
+
+            # Step 2: LLM extraction
+            status.update(label="Step 2/2: Extracting structured product info…", state="running")
+            status.write("-" * 50)
+            status.write("Calling Qwen 2.5 to parse product info…")
+
+            try:
+                result = extract_product_info_with_llm(processed_texts)
+            except Exception as e:
+                # Error handling
+                status.update(label="Extraction failed [ERROR]", state="error")
+                status.write("=" * 50)
+                status.write(f"[X] Error during LLM call: {e}")
+                status.write("=" * 50)
+                st.error(f"Failed to parse LLM output as valid JSON: {e}")
+                # Log error to wandb
+                run.log({"error": str(e)})
+                run.finish()
+            else:
+                # Log LLM input and output to wandb
+                run.log({
+                    "llm_input_text": processed_texts,
+                    "llm_output_json": result.model_dump(),
+                    "llm_model_name": "qwen2.5:7b",
+                })
+
+                status.write("=" * 50)
+                status.write("[OK] Product info extracted.")
+                status.write("=" * 50)
+                status.update(label="Extraction complete [OK]", state="complete")
+
+                # Display structured extraction results
+                st.subheader("Structured extraction (Pydantic)")
+                st.session_state.current_product = result
+                st.json(st.session_state.current_product)
+                st.session_state.form_name = result.name
+                st.session_state.form_expiry = result.expiry_date
+                st.session_state.form_qty = result.qty
+                st.session_state.form_size_amount = result.size.amount
+                st.session_state.form_size_unit = result.size.unit
+                st.session_state.form_nutrition_facts = result.nutrition_facts
+
+                run.finish()
+                st.rerun()
 
 
     with st.form("New Grocery item"):
