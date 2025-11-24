@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 # Setup ORM
 @st.cache_resource()
 def get_engine():
-    engine = create_engine("postgresql://postgres:secret@127.0.0.1:5433")#db:5432")#
+    engine = create_engine("postgresql://postgres:secret@db:5432")#127.0.0.1:5433")#
     Base.metadata.create_all(engine)
 
     return engine
@@ -27,7 +27,7 @@ engine = get_engine()
 
 
 client = OpenAI(
-    base_url="http://localhost:11434/v1",#ollama:11434/v1",#
+    base_url="http://ollama:11434/v1",#localhost:11434/v1",#
     api_key="dummy-key",
 )
 
