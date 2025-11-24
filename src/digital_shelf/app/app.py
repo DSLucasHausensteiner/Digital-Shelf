@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 # Setup ORM
 @st.cache_resource()
 def get_engine():
-    engine = create_engine("postgresql://postgres:secret@db:5432")#127.0.0.1:5433")#
+    engine = create_engine("postgresql://postgres:secret@127.0.0.1:5433")#db:5432")#
     Base.metadata.create_all(engine)
 
     return engine
@@ -27,7 +27,7 @@ engine = get_engine()
 
 
 client = OpenAI(
-    base_url="http://ollama:11434/v1",#localhost:11434/v1",#
+    base_url="http://localhost:11434/v1",#ollama:11434/v1",#
     api_key="dummy-key",
 )
 
@@ -171,30 +171,37 @@ def extract_product_info_with_llm(ocr_texts: str):
 def chat_setup():
     if not st.session_state.chat_expander:
         st.session_state.chat_expander = True
-    if len(st.session_state.messages) == 0:
-        with Session(engine) as session:
-            repo = ProductRepository(session)
-            products = repo.list_all()
-            products_json = [p.model_dump() for p in products]
+        
+    with Session(engine) as session:
+        repo = ProductRepository(session)
+        products = repo.list_all()
+        products_json = [p.model_dump() for p in products]
 
-        system_prompt = f"""
-            You are a recipe assistant.
+    system_prompt = f"""
+        You are a recipe assistant.
 
-            Here is the list of all products available:
+        Here is the list of all products available:
 
-            {products_json}
+        {products_json}
 
-            Use these ingredients to generate recipe suggestions.
-            If ingredients are missing, specify what else is needed.
-        """
+        Use these ingredients to generate recipe suggestions.
+        If ingredients are missing, specify what else is needed.
+    """
+    
 
-        st.session_state.messages.append(
-            {
-                "role":"system",
-                "content":system_prompt
-            }
-        )
-
+    idx = next(
+        (i for i, m in enumerate(st.session_state.messages) if m.get("role") == "system"),
+        None
+    )
+    if idx is not None:
+        st.session_state.messages[idx]["content"] = system_prompt # overwrite old shelf state
+    else:
+        # insert new
+        st.session_state.messages.append({
+            "role": "system",
+            "content": system_prompt
+        })
+        
 # Setup sessions states
 if "images" not in st.session_state:
     st.session_state.images = []
@@ -262,6 +269,8 @@ with st.expander(label="Enter a new product", expanded=st.session_state.image_ex
             st.session_state.form_size_amount = result.size.amount
             st.session_state.form_size_unit = result.size.unit
             st.session_state.form_nutrition_facts = result.nutrition_facts
+
+            st.rerun()
 
 
     with st.form("New Grocery item"):
