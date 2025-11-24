@@ -15,6 +15,10 @@ from digital_shelf.adapters.repository import ProductRepository
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+import os
+import wandb
+from PIL import Image
+
 # Setup ORM
 @st.cache_resource()
 def get_engine():
@@ -246,20 +250,52 @@ with st.expander(label="Enter a new product", expanded=st.session_state.image_ex
         render_image_container(i, img_bytes)
 
     if st.button(label="Extract the text from the entered Images"):
+        # Initialize wandb run for logging OCR and LLM data
+        run = wandb.init(
+            project=os.getenv("WANDB_PROJECT", "digital-shelf"),
+            entity=os.getenv("WANDB_ENTITY"),
+            reinit=True,
+        )
+
         processed_texts = ""
-        for img in st.session_state.images:
-            texts = process_grocery_img(img)
+        # Create table to log images with their OCR text
+        ocr_table = wandb.Table(columns=["image", "ocr_text"])
+
+        # Process images and log OCR results
+        for img_bytes in st.session_state.images:
+            texts = process_grocery_img(img_bytes)
             joined_texts = " ".join(texts)
-            processed_texts += joined_texts
+            processed_texts += joined_texts + " "
+
+            # Convert bytes to PIL Image for wandb logging
+            pil_img = Image.open(io.BytesIO(img_bytes))
+            ocr_table.add_data(
+                wandb.Image(pil_img, caption="grocery image"),
+                joined_texts,
+            )
+
+        # Log OCR table with images and extracted text
+        run.log({"ocr_examples": ocr_table})
+
         st.write(f"Found texts are: \n\n {processed_texts}")
 
-
+        # Extract structured product info using LLM
         try:
             result = extract_product_info_with_llm(processed_texts)
         except Exception as e:
             st.error(f"Failed to parse LLM output as valid JSON: {e}")
+            # Log error to wandb
+            run.log({"error": str(e)})
+            run.finish()
         else:
-            # Show raw JSON
+            # Log LLM input and output to wandb
+            run.log({
+                "llm_input_text": processed_texts,
+                "llm_output_json": result.model_dump(),
+                "llm_model_name": "qwen2.5:7b",
+            })
+
+            # Display structured extraction results
             st.subheader("Structured extraction (Pydantic)")
             st.session_state.current_product = result
             st.json(st.session_state.current_product)
@@ -270,6 +306,7 @@ with st.expander(label="Enter a new product", expanded=st.session_state.image_ex
             st.session_state.form_size_unit = result.size.unit
             st.session_state.form_nutrition_facts = result.nutrition_facts
 
+            run.finish()
             st.rerun()
 
 
