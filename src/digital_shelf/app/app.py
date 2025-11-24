@@ -165,10 +165,36 @@ def extract_product_info_with_llm(ocr_texts: str):
     content = response.choices[0].message.content
 
     # Validate & parse with Pydantic
-    st.write(content)
     result = Product.model_validate_json(content)
     return result
-    
+
+def chat_setup():
+    if not st.session_state.chat_expander:
+        st.session_state.chat_expander = True
+    if len(st.session_state.messages) == 0:
+        with Session(engine) as session:
+            repo = ProductRepository(session)
+            products = repo.list_all()
+            products_json = [p.model_dump() for p in products]
+
+        system_prompt = f"""
+            You are a recipe assistant.
+
+            Here is the list of all products available:
+
+            {products_json}
+
+            Use these ingredients to generate recipe suggestions.
+            If ingredients are missing, specify what else is needed.
+        """
+
+        st.session_state.messages.append(
+            {
+                "role":"system",
+                "content":system_prompt
+            }
+        )
+
 # Setup sessions states
 if "images" not in st.session_state:
     st.session_state.images = []
@@ -182,12 +208,16 @@ if "last_image_hash" not in st.session_state:
 if "current_product" not in st.session_state:
     st.session_state.current_product = None
 
+st.session_state.setdefault("messages", [])
+
 st.session_state.setdefault("form_nutrition_facts")
 
-st.title("Digital Shelf 1")
+st.session_state.setdefault("chat_expander", False)
+
+
+st.title("Digital Shelf")
 
 st.write("Welcome to the digital version of your shelf.")
-st.write(st.session_state.image_expander)
 
 with st.expander(label="Enter a new product", expanded=st.session_state.image_expander):
     # Image capture to get the images
@@ -236,26 +266,27 @@ with st.expander(label="Enter a new product", expanded=st.session_state.image_ex
 
     with st.form("New Grocery item"):
         name = st.text_input("Enter the name of the product", key="form_name")
-        expiry_date = st.date_input("Enter the expiry date", key="form_expiry")
+        expiry_date = st.date_input("Enter the expiry date", key="form_expiry", format="DD.MM.YYYY")
         qty = st.number_input("Enter the quantity of the product", key="form_qty", step=1)
         size_amount = st.number_input("Enter an amount of the product", key="form_size_amount")
         size_unit = st.selectbox("Enter the unit of the amount", options=["g", "kg", "ml", "l"], key="form_size_unit")
 
         nutrition_facts = None
         if st.session_state.form_nutrition_facts is not None:
-            nutrition_df = pd.DataFrame(st.session_state.form_nutrition_facts)
-            nutrition_facts = st.data_editor(nutrition_df)
+            nutrition_facts = st.data_editor(st.session_state.form_nutrition_facts)
+            # st.button("Remove nutrition table", on_click=lambda: st.session_state.update({"nutrition_facts": None}))
 
-        p = Product(
-            name=name,
-            expiry_date=expiry_date,
-            qty=qty,
-            size=Unit(amount=size_amount, unit=size_unit),
-            nutrition_facts= nutrition_facts
-        )
 
-        submitted = st.form_submit_button("Submit")
-        if submitted:
+        if submitted := st.form_submit_button("Submit"):
+
+            p = Product(
+                name=name,
+                expiry_date=expiry_date,
+                qty=qty,
+                size=Unit(amount=size_amount, unit=size_unit),
+                nutrition_facts= nutrition_facts
+            )
+
             with Session(engine) as session:
                 # Create domain objects
                 repo = ProductRepository(session)
@@ -278,4 +309,36 @@ if st.button(label="View my digital shelf"):
         st.write(df)
 
 
-st.button(label="Generate Recipe")
+with st.expander(label="Get Recipe Ideas", expanded=st.session_state.chat_expander):
+    chat_container = st.container()
+    
+    for msg in st.session_state.messages:
+        if msg["role"] in ["user", "assistant"]:
+            chat_container.chat_message(msg["role"]).write(msg["content"])
+    
+    if prompt := st.chat_input(on_submit=chat_setup()):
+        st.session_state.messages.append(
+            {
+                "role": "user",
+                "content": prompt
+            }
+        )
+        chat_container.chat_message("user").write(prompt)
+
+        response = client.chat.completions.create(
+            model="qwen2.5:7b",
+            messages=st.session_state.messages,
+            temperature=0.2
+        )
+
+        assistant_response = response.choices[0].message.content
+
+        chat_container.chat_message("assistant").write(assistant_response)
+
+        st.session_state.messages.append(
+            {
+                "role": "assistant",
+                "content": assistant_response
+            }
+        )
+
