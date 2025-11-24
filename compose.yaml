@@ -11,10 +11,17 @@ services:
     networks:
       - app_network
 
-  # ocr:
-  #   build:
-  #     context: ./ocr
-  #     dockerfile: Dockerfile
+  ocr:
+    build:
+      context: ./ocr
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    deploy:
+      reservations:
+        devices:
+          - driver: nvidia
+            capabilities: [gpu]
 
   frontend:
     build:
