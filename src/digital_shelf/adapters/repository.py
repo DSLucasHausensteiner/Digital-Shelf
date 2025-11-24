@@ -27,11 +27,7 @@ class ProductRepository():
     
     def list_all(self):
         rows = self.session.query(ProductORM).all()
-        return [self._to_domain(row) for row in rows]
-
-    
-    def _to_domain(self, orm: ProductORM) -> Product:
-        return Product.model_validate(orm)
+        return [row._to_domain() for row in rows]
 
     def _to_orm(self, p: Product) -> ProductORM:
         return ProductORM(

@@ -3,6 +3,7 @@ from sqlalchemy import Column, Integer, Float, String, DateTime, UniqueConstrain
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase
 
+from digital_shelf.domain.model import Product, Unit
 class Base(DeclarativeBase):
     pass
 
@@ -25,3 +26,16 @@ class ProductORM(Base):
             name="uq_product_unique_item"
         ),
     )
+
+    def _to_domain(self) -> Product:
+        size = None
+        if self.size_amount is not None or self.size_unit is not None:
+            size = Unit(amount=self.size_amount, unit=self.size_unit)
+
+        return Product(
+            name=self.name,
+            qty=self.qty,
+            size=size,
+            expiry_date=self.expiry_date,
+            nutrition_facts=self.nutrition_facts,
+        )
