@@ -18,10 +18,11 @@ services:
     ports:
       - "8080:8080"
     deploy:
-      reservations:
-        devices:
-          - driver: nvidia
-            capabilities: [gpu]
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
 
   frontend:
     build:
