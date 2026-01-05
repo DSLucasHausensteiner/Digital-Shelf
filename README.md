@@ -1,3 +1,6 @@
+
+**Important: due to security reasons the access to the public domain will be removed on the 05.01.2026 23:59:59** 
+
 # Digital Shelf – Solution Deployment Overview
 
 This project comprises a fully working pipeline for our Solution Deployment course. The stack ingests grocery product imagery through a local PaddleOCR server, validates the extracted text with a locally hosted Qwen2.5 7B model via OLAMA and exposes the curated digital shelf data through a web frontend routed behind a reverse proxy.
